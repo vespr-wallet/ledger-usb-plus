@@ -1,6 +1,6 @@
 import 'package:algorand_dart/algorand_dart.dart';
 import 'package:flutter/material.dart';
-import 'package:ledger_algorand/ledger_algorand.dart';
+import 'package:ledger_cardano/ledger_cardano.dart';
 import 'package:ledger_flutter/ledger.dart';
 import 'package:ledger_usb/ledger_usb.dart';
 import 'package:ledger_usb/usb_device.dart';
