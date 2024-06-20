@@ -64,13 +64,62 @@ class WebLedgerUsb extends LedgerUsbPlatform {
   @override
   Future<bool> open(UsbDevice usbDevice) async {
     try {
+      print("Searching for the device in the found devices list...");
       final activeDevice = _foundDevices
           .firstWhere((e) => e.serialNumber == usbDevice.identifier);
-      // TODO: here you need to select configuration, claim interface
-      final endpointNumber =
-          999; // TODO, find the appropriate one based on interface that supports in and out
+      print("Device found. Attempting to open the device...");
+
       await activeDevice.open();
+      print("Device opened successfully.");
+
+      print("Fetching device configuration...");
+      final configuration = await activeDevice.configuration;
+      if (configuration == null) {
+        throw Exception("No configuration found");
+      }
+      print("Configuration found: ${configuration.configurationValue}. Selecting configuration...");
+      await activeDevice.selectConfiguration(configuration.configurationValue);
+
+      print("Retrieving device interfaces...");
+      final interfaces = await activeDevice.interfaces;
+      if (interfaces.isEmpty) {
+        throw Exception("No interfaces found");
+      }
+
+      bool interfaceClaimed = false;
+      USBInterface? claimedInterface;
+      for (final interface in interfaces) {
+        if (!interface.claimed) {
+          print("Unclaimed interface found: ${interface.interfaceNumber}. Claiming interface...");
+          try {
+            await activeDevice.claimInterface(interface.interfaceNumber);
+            interfaceClaimed = true;
+            claimedInterface = interface;
+            print("Interface ${interface.interfaceNumber} claimed successfully.");
+            break;
+          } catch (e) {
+            if (e.toString().contains('SecurityError')) {
+              print("SecurityError: The requested interface implements a protected class. Trying next interface...");
+            } else {
+              throw e;
+            }
+          }
+        }
+      }
+
+      if (!interfaceClaimed || claimedInterface == null) {
+        throw Exception("No unclaimed interfaces could be claimed.");
+      }
+
+      print("Accessing interface endpoints...");
+      final endpoints = claimedInterface.alternate.endpoints.toDart;
+      final usableEndpoint = endpoints.firstWhere((e) => e.direction == 'in');
+      print("Usable IN endpoint found: ${usableEndpoint.endpointNumber}.");
+
+      final endpointNumber = usableEndpoint.endpointNumber;
+      print('IN endpoint number: $endpointNumber');
       _activeDevice = (device: activeDevice, endpointNumber: endpointNumber);
+      print("Device is now active with endpoint number: $endpointNumber.");
       return true;
     } catch (e) {
       print("Error opening device: $e");
@@ -143,3 +192,4 @@ class WebLedgerUsb extends LedgerUsbPlatform {
     }
   }
 }
+

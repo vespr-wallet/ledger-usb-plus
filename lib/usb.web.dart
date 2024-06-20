@@ -43,6 +43,12 @@ extension type USBDevice._(JSObject o) implements JSObject {
   // ignore: prefer_void_to_null
   external JSPromise<Null> _open();
 
+  @JS('selectConfiguration')
+  external JSPromise<Null> _selectConfiguration(int configurationValue);
+
+  @JS('claimInterface')
+  external JSPromise<Null> _claimInterface(int interfaceNumber);
+
   @JS('transferIn')
   external JSPromise<USBInTransferResult> _transferIn(
     int endpointNumber,
@@ -66,10 +72,24 @@ extension type USBDevice._(JSObject o) implements JSObject {
 
   external bool get opened;
 
+  @JS('configuration')
+  external USBConfiguration? get _configuration;
+
+  @JS('configuration.interfaces')
+  external JSArray<USBInterface>? get _interfaces;
+
   Future<void> open() async {
     if (!opened) {
       await _open().toDart;
     }
+  }
+
+  Future<void> selectConfiguration(int configurationValue) async {
+    await _selectConfiguration(configurationValue).toDart;
+  }
+
+  Future<void> claimInterface(int interfaceNumber) async {
+    await _claimInterface(interfaceNumber).toDart;
   }
 
   Future<USBInTransferResult> transferIn(
@@ -132,4 +152,47 @@ extension type RequestUSBDeviceFilter._(JSObject o) implements JSObject {
     String? protocolCode,
     String? serialNumber,
   });
+}
+
+// New extension class for USBDevice
+extension USBDeviceExtension on USBDevice {
+  Future<USBConfiguration?> get configuration async => _configuration;
+  
+  Future<List<USBInterface>> get interfaces async {
+    final config = await configuration;
+    final jsInterfaces = config?.interfaces.toDart;
+    if (jsInterfaces == null) {
+      return [];
+    }
+    return jsInterfaces;
+  }
+}
+
+extension type USBConfiguration._(JSObject o) implements JSObject {
+  external String? get configurationName;
+  external int get configurationValue;
+  external JSArray<USBInterface> get interfaces;
+}
+
+extension type USBInterface._(JSObject o) implements JSObject {
+  external int get interfaceNumber;
+  external String? get interfaceName;
+  external int get interfaceClass;
+  external int get interfaceSubclass;
+  external int get interfaceProtocol;
+  external bool get claimed;
+  external USBAlternateInterface get alternate;
+}
+
+extension type USBAlternateInterface._(JSObject o) implements JSObject {
+  external int get alternateSetting;
+    external JSArray<USBEndpoint> get endpoints;
+
+}
+
+extension type USBEndpoint._(JSObject o) implements JSObject {
+  external int get endpointNumber;
+  external String get direction;
+  external String get type;
+  external int get packetSize;
 }
