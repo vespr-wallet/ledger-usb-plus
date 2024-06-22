@@ -75,42 +75,73 @@ extension type USBDevice._(JSObject o) implements JSObject {
   @JS('configuration')
   external USBConfiguration? get _configuration;
 
-  @JS('configuration.interfaces')
-  external JSArray<USBInterface>? get _interfaces;
 
   Future<void> open() async {
-    if (!opened) {
-      await _open().toDart;
+    try {
+      if (!opened) {
+        await _open().toDart;
+        print("Device opened successfully");
+      } else {
+        print("Device is already open");
+      }
+    } catch (e) {
+      print("Error opening device: $e");
+      throw Exception("Failed to open device: $e");
     }
   }
 
   Future<void> selectConfiguration(int configurationValue) async {
     await _selectConfiguration(configurationValue).toDart;
+    print("Configuration $configurationValue selected");
   }
 
   Future<void> claimInterface(int interfaceNumber) async {
     await _claimInterface(interfaceNumber).toDart;
+    print("Interface $interfaceNumber claimed");
   }
 
   Future<USBInTransferResult> transferIn(
     int endpointNumber,
     int packetSize,
   ) async {
-    final result = await _transferIn(endpointNumber, packetSize).toDart;
-    return result;
+    if (!opened) {
+      throw Exception("Device is not open");
+    }
+    print("Performing transferIn on endpoint $endpointNumber with packetSize $packetSize");
+    try {
+      final result = await _transferIn(endpointNumber, packetSize).toDart;
+      print("TransferIn completed with status: ${result.status}");
+      return result;
+    } catch (e) {
+      print("Error in transferIn: $e");
+      throw Exception("TransferIn failed: $e");
+    }
   }
 
   Future<USBOutTransferResult> transferOut(
     int endpointNumber,
     JSUint8Array data,
   ) async {
-    final result = await _transferOut(endpointNumber, data).toDart;
-    return result;
+    if (!opened) {
+      throw Exception("Device is not open");
+    }
+    print("Performing transferOut on endpoint $endpointNumber with data length ${data.toDart.length}");
+    try {
+      final result = await _transferOut(endpointNumber, data).toDart;
+      print("TransferOut completed with status: ${result.status}");
+      return result;
+    } catch (e) {
+      print("Error in transferOut: $e");
+      throw Exception("TransferOut failed: $e");
+    }
   }
 
   Future<void> close() async {
     if (opened) {
       await _close().toDart;
+      print("Device closed successfully");
+    } else {
+      print("Device is already closed");
     }
   }
 }

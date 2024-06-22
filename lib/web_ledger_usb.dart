@@ -7,7 +7,7 @@ import 'ledger_usb_platform_interface.dart';
 
 class WebLedgerUsb extends LedgerUsbPlatform {
   final List<USBDevice> _foundDevices = [];
-  ({USBDevice device, int endpointNumber})? _activeDevice;
+  ({USBDevice device, int inEndpointNumber, int outEndpointNumber})? _activeDevice;
 
   @override
   Future<List<UsbDevice>> getDevices() async {
@@ -31,6 +31,7 @@ class WebLedgerUsb extends LedgerUsbPlatform {
         print(device);
       }
 
+      _foundDevices.clear(); // Clear the list before adding new devices
       _foundDevices.addAll(devices);
 
       return devices
@@ -90,7 +91,7 @@ class WebLedgerUsb extends LedgerUsbPlatform {
       USBInterface? claimedInterface;
       for (final interface in interfaces) {
         if (!interface.claimed) {
-          print("Unclaimed interface found: ${interface.interfaceNumber}. Claiming interface...");
+          print("Unclaimed interface found: ${interface.interfaceNumber}. Attempting to claim interface...");
           try {
             await activeDevice.claimInterface(interface.interfaceNumber);
             interfaceClaimed = true;
@@ -99,7 +100,7 @@ class WebLedgerUsb extends LedgerUsbPlatform {
             break;
           } catch (e) {
             if (e.toString().contains('SecurityError')) {
-              print("SecurityError: The requested interface implements a protected class. Trying next interface...");
+              print("SecurityError: The requested interface implements a protected class. Skipping...");
             } else {
               throw e;
             }
@@ -108,18 +109,23 @@ class WebLedgerUsb extends LedgerUsbPlatform {
       }
 
       if (!interfaceClaimed || claimedInterface == null) {
-        throw Exception("No unclaimed interfaces could be claimed.");
+        throw Exception("No claimable interfaces found.");
       }
 
       print("Accessing interface endpoints...");
       final endpoints = claimedInterface.alternate.endpoints.toDart;
-      final usableEndpoint = endpoints.firstWhere((e) => e.direction == 'in');
-      print("Usable IN endpoint found: ${usableEndpoint.endpointNumber}.");
+      final inEndpoint = endpoints.firstWhere((e) => e.direction == 'in', orElse: () => throw Exception("IN endpoint not found"));
+      final outEndpoint = endpoints.firstWhere((e) => e.direction == 'out', orElse: () => throw Exception("OUT endpoint not found"));
 
-      final endpointNumber = usableEndpoint.endpointNumber;
-      print('IN endpoint number: $endpointNumber');
-      _activeDevice = (device: activeDevice, endpointNumber: endpointNumber);
-      print("Device is now active with endpoint number: $endpointNumber.");
+      print("Usable IN endpoint found: ${inEndpoint.endpointNumber}");
+      print("Usable OUT endpoint found: ${outEndpoint.endpointNumber}");
+
+      _activeDevice = (
+        device: activeDevice,
+        inEndpointNumber: inEndpoint.endpointNumber,
+        outEndpointNumber: outEndpoint.endpointNumber
+      );
+      print("Device is now active with IN endpoint: ${inEndpoint.endpointNumber} and OUT endpoint: ${outEndpoint.endpointNumber}");
       return true;
     } catch (e) {
       print("Error opening device: $e");
@@ -133,14 +139,19 @@ class WebLedgerUsb extends LedgerUsbPlatform {
       final activeDevice = _activeDevice;
 
       if (activeDevice == null) {
-        throw Exception("No active device; use requestPermission first");
+        throw Exception("No active device; use open() first");
       }
       final device = activeDevice.device;
-      final endpointNumber = activeDevice.endpointNumber;
+      final endpointNumber = activeDevice.inEndpointNumber;
+
+      if (!device.opened) {
+        print("Device is not open. Attempting to reopen...");
+        await device.open();
+      }
 
       print("Calling transferIn on activeDevice with packetSize: $packetSize");
       final result = await device.transferIn(endpointNumber, packetSize);
-      print("Result from transferIn: $result");
+      print("Result from transferIn: ${result.status}");
       final jsDataView = result.data;
       if (jsDataView != null) {
         final byteData = jsDataView.toDart;
@@ -149,6 +160,12 @@ class WebLedgerUsb extends LedgerUsbPlatform {
       return null;
     } catch (e) {
       print("Error in transferIn: $e");
+      if (e.toString().contains('InvalidStateError')) {
+        print("Device is in an invalid state. Attempting to reopen...");
+        await _reopenDevice();
+        // Retry the transfer after reopening
+        return transferIn(packetSize, timeout);
+      }
       return null;
     }
   }
@@ -159,19 +176,50 @@ class WebLedgerUsb extends LedgerUsbPlatform {
       final activeDevice = _activeDevice;
 
       if (activeDevice == null) {
-        throw Exception("No active device; use requestPermission first");
+        throw Exception("No active device; use open() first");
       }
       final device = activeDevice.device;
-      final endpointNumber = activeDevice.endpointNumber;
+      final endpointNumber = activeDevice.outEndpointNumber;
+
+      if (!device.opened) {
+        print("Device is not open. Attempting to reopen...");
+        await device.open();
+      }
 
       print(
           "Calling transferOut on activeDevice with data length: ${data.length}");
       final result = await device.transferOut(endpointNumber, data.toJS);
-      print("Result from transferOut: $result");
+      print("Result from transferOut: ${result.status}");
       return result.bytesWritten;
     } catch (e) {
       print("Error in transferOut: $e");
+      if (e.toString().contains('InvalidStateError')) {
+        print("Device is in an invalid state. Attempting to reopen...");
+        await _reopenDevice();
+        // Retry the transfer after reopening
+        return transferOut(data, timeout);
+      }
       return -1;
+    }
+  }
+
+  Future<void> _reopenDevice() async {
+    final activeDevice = _activeDevice;
+    if (activeDevice != null) {
+      final device = activeDevice.device;
+      await device.close();
+      await device.open();
+      // Re-claim the interface and set up the endpoint
+      await open(UsbDevice(
+        manufacturerName: device.manufacturerName,
+        deviceId: 0,
+        vendorId: device.vendorId,
+        productId: device.productId,
+        productName: device.productName,
+        configurationCount: 0,
+        identifier: device.serialNumber,
+        deviceName: device.productName,
+      ));
     }
   }
 
@@ -192,4 +240,3 @@ class WebLedgerUsb extends LedgerUsbPlatform {
     }
   }
 }
-
