@@ -14,17 +14,12 @@ extension type WebUSB._(JSObject o) implements JSObject {
   external JSPromise<USBDevice> _requestDevice(RequestUSBDeviceFilters filters);
 
   Future<List<USBDevice>> getDevices() async {
-    final jsDevices = await _getDevices().toDart;
-    final devices = jsDevices.toDart;
-
-    for (final device in devices) {
-      print("${device.manufacturerName} ${device.productName}");
-      print("Serial ${device.serialNumber}");
-      print("vendorId ${device.vendorId}");
-      print("productId ${device.productId}");
+    try {
+      final jsDevices = await _getDevices().toDart;
+      return jsDevices.toDart;
+    } catch (e) {
+      return [];
     }
-
-    return devices;
   }
 
   Future<USBDevice?> requestDevice(RequestUSBDeviceFilters filters) async {
@@ -32,7 +27,6 @@ extension type WebUSB._(JSObject o) implements JSObject {
       final device = await _requestDevice(filters).toDart;
       return device as USBDevice?;
     } catch (e) {
-      print("Error requesting device: $e");
       return null;
     }
   }
@@ -40,7 +34,6 @@ extension type WebUSB._(JSObject o) implements JSObject {
 
 extension type USBDevice._(JSObject o) implements JSObject {
   @JS('open')
-  // ignore: prefer_void_to_null
   external JSPromise<Null> _open();
 
   @JS('selectConfiguration')
@@ -75,29 +68,22 @@ extension type USBDevice._(JSObject o) implements JSObject {
   @JS('configuration')
   external USBConfiguration? get _configuration;
 
-
   Future<void> open() async {
     try {
       if (!opened) {
         await _open().toDart;
-        print("Device opened successfully");
-      } else {
-        print("Device is already open");
       }
     } catch (e) {
-      print("Error opening device: $e");
-      throw Exception("Failed to open device: $e");
+      throw Exception('Failed to open device: $e');
     }
   }
 
   Future<void> selectConfiguration(int configurationValue) async {
     await _selectConfiguration(configurationValue).toDart;
-    print("Configuration $configurationValue selected");
   }
 
   Future<void> claimInterface(int interfaceNumber) async {
     await _claimInterface(interfaceNumber).toDart;
-    print("Interface $interfaceNumber claimed");
   }
 
   Future<USBInTransferResult> transferIn(
@@ -105,16 +91,13 @@ extension type USBDevice._(JSObject o) implements JSObject {
     int packetSize,
   ) async {
     if (!opened) {
-      throw Exception("Device is not open");
+      throw Exception('Device is not open');
     }
-    print("Performing transferIn on endpoint $endpointNumber with packetSize $packetSize");
     try {
       final result = await _transferIn(endpointNumber, packetSize).toDart;
-      print("TransferIn completed with status: ${result.status}");
       return result;
     } catch (e) {
-      print("Error in transferIn: $e");
-      throw Exception("TransferIn failed: $e");
+      throw Exception('TransferIn failed: $e');
     }
   }
 
@@ -123,25 +106,19 @@ extension type USBDevice._(JSObject o) implements JSObject {
     JSUint8Array data,
   ) async {
     if (!opened) {
-      throw Exception("Device is not open");
+      throw Exception('Device is not open');
     }
-    print("Performing transferOut on endpoint $endpointNumber with data length ${data.toDart.length}");
     try {
       final result = await _transferOut(endpointNumber, data).toDart;
-      print("TransferOut completed with status: ${result.status}");
       return result;
     } catch (e) {
-      print("Error in transferOut: $e");
-      throw Exception("TransferOut failed: $e");
+      throw Exception('TransferOut failed: $e');
     }
   }
 
   Future<void> close() async {
     if (opened) {
       await _close().toDart;
-      print("Device closed successfully");
-    } else {
-      print("Device is already closed");
     }
   }
 }
@@ -185,10 +162,9 @@ extension type RequestUSBDeviceFilter._(JSObject o) implements JSObject {
   });
 }
 
-// New extension class for USBDevice
 extension USBDeviceExtension on USBDevice {
   Future<USBConfiguration?> get configuration async => _configuration;
-  
+
   Future<List<USBInterface>> get interfaces async {
     final config = await configuration;
     final jsInterfaces = config?.interfaces.toDart;
@@ -217,8 +193,7 @@ extension type USBInterface._(JSObject o) implements JSObject {
 
 extension type USBAlternateInterface._(JSObject o) implements JSObject {
   external int get alternateSetting;
-    external JSArray<USBEndpoint> get endpoints;
-
+  external JSArray<USBEndpoint> get endpoints;
 }
 
 extension type USBEndpoint._(JSObject o) implements JSObject {
