@@ -121,8 +121,17 @@ extension type USBDevice._(JSObject o) implements JSObject {
 }
 
 extension type USBInTransferResult._(JSObject o) implements JSObject {
-  external JSDataView? get data;
+  @JS('data')
+  external JSDataView? get _data;
   external String get status;
+
+  Uint8List? get data {
+    final jsData = _data;
+    if (jsData == null) {
+      return null;
+    }
+    return jsData.toDart.buffer.asUint8List();
+  }
 }
 
 extension type USBOutTransferResult._(JSObject o) implements JSObject {
@@ -190,7 +199,10 @@ extension type USBInterface._(JSObject o) implements JSObject {
 
 extension type USBAlternateInterface._(JSObject o) implements JSObject {
   external int get alternateSetting;
-  external JSArray<USBEndpoint> get endpoints;
+  @JS('endpoints')
+  external JSArray<USBEndpoint> get _endpoints;
+
+  List<USBEndpoint> get endpoints => _endpoints.toDart;
 }
 
 extension type USBEndpoint._(JSObject o) implements JSObject {

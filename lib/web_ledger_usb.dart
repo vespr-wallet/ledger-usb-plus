@@ -6,6 +6,11 @@ import 'ledger_usb_platform_interface.dart';
 
 LedgerUsbPlatform createPlatformInstance() => WebLedgerUsb();
 
+const _ledgerVendorId = 11415;
+
+const _usbInterfaceDirectionIn = 'in';
+const _usbInterfaceDirectionOut = 'out';
+
 class WebLedgerUsb extends LedgerUsbPlatform {
   final List<USBDevice> _foundDevices = [];
   ({
@@ -17,9 +22,11 @@ class WebLedgerUsb extends LedgerUsbPlatform {
   @override
   Future<List<UsbDevice>> getDevices() async {
     try {
-      final device = await usb.requestDevice(RequestUSBDeviceFilters.dart([
-        RequestUSBDeviceFilter(vendorId: 11415),
-      ]));
+      final device = await usb.requestDevice(
+        RequestUSBDeviceFilters.dart(
+          [RequestUSBDeviceFilter(vendorId: _ledgerVendorId)],
+        ),
+      );
 
       if (device == null) {
         return [];
@@ -51,13 +58,7 @@ class WebLedgerUsb extends LedgerUsbPlatform {
 
   @override
   Future<bool> requestPermission(UsbDevice usbDevice) async {
-    try {
-      // Assuming permission is always granted for simplicity
-      return true;
-    } catch (e) {
-      debugPrint('Error in requestPermission: $e');
-      return false;
-    }
+    return true;
   }
 
   @override
@@ -76,40 +77,61 @@ class WebLedgerUsb extends LedgerUsbPlatform {
       }
       await activeDevice.selectConfiguration(configuration.configurationValue);
 
-      final interfaces = await activeDevice.interfaces;
-      if (interfaces.isEmpty) {
+      final allInterfaces = await activeDevice.interfaces;
+      if (allInterfaces.isEmpty) {
         throw Exception('No interfaces found');
       }
 
+      List<USBInterface> eligibleInterfaces = allInterfaces
+          .where(
+            (e) =>
+                !e.claimed &&
+                e.alternate.endpoints.any(
+                  (e) => e.direction == _usbInterfaceDirectionIn,
+                ) &&
+                e.alternate.endpoints.any(
+                  (e) => e.direction == _usbInterfaceDirectionOut,
+                ),
+          )
+          .toList(growable: false);
+
+      if (eligibleInterfaces.isEmpty) {
+        throw Exception('No eligible interfaces found');
+      }
+
       USBInterface? claimedInterface;
-      for (final interface in interfaces) {
-        if (!interface.claimed) {
-          try {
-            await activeDevice.claimInterface(interface.interfaceNumber);
-            claimedInterface = interface;
-            break;
-          } catch (e) {
-            if (e.toString().contains('SecurityError')) {
-              continue;
-            } else {
-              rethrow;
-            }
-          }
+      for (final interface in eligibleInterfaces) {
+        if (interface.claimed) continue;
+
+        try {
+          await activeDevice.claimInterface(interface.interfaceNumber);
+          claimedInterface = interface;
+          break;
+        } catch (e) {
+          debugPrint('Error in claimInterface: $e');
+          continue;
+          // if (e.toString().contains('SecurityError')) {
+          //   continue;
+          // } else {
+          //   rethrow;
+          // }
         }
       }
 
       if (claimedInterface == null) {
-        throw Exception('No claimable interfaces found.');
+        throw Exception('No eligible interface could be claimed.');
       }
 
-      final endpoints = claimedInterface.alternate.endpoints.toDart;
+      final endpoints = claimedInterface.alternate.endpoints;
       final inEndpoint = endpoints.firstWhere(
-        (e) => e.direction == 'in',
-        orElse: () => throw Exception('IN endpoint not found'),
+        (e) => e.direction == _usbInterfaceDirectionIn,
+        orElse: () => throw Exception(
+            'wtf: IN endpoint not found anymore on eligible interface'),
       );
       final outEndpoint = endpoints.firstWhere(
-        (e) => e.direction == 'out',
-        orElse: () => throw Exception('OUT endpoint not found'),
+        (e) => e.direction == _usbInterfaceDirectionOut,
+        orElse: () => throw Exception(
+            'wtf: OUT endpoint not found anymore on eligible interface'),
       );
 
       _activeDevice = (
@@ -139,12 +161,7 @@ class WebLedgerUsb extends LedgerUsbPlatform {
       }
 
       final result = await device.transferIn(endpointNumber, packetSize);
-      final jsDataView = result.data;
-      if (jsDataView != null) {
-        final byteData = jsDataView.toDart;
-        return byteData.buffer.asUint8List();
-      }
-      return null;
+      return result.data;
     } catch (e) {
       debugPrint('Error in transferIn: $e');
       if (e.toString().contains('InvalidStateError')) {
@@ -187,16 +204,18 @@ class WebLedgerUsb extends LedgerUsbPlatform {
       final device = activeDevice.device;
       await device.close();
       await device.open();
-      await open(UsbDevice(
-        manufacturerName: device.manufacturerName,
-        deviceId: 0,
-        vendorId: device.vendorId,
-        productId: device.productId,
-        productName: device.productName,
-        configurationCount: 0,
-        identifier: device.serialNumber,
-        deviceName: device.productName,
-      ));
+      await open(
+        UsbDevice(
+          manufacturerName: device.manufacturerName,
+          deviceId: 0,
+          vendorId: device.vendorId,
+          productId: device.productId,
+          productName: device.productName,
+          configurationCount: 0,
+          identifier: device.serialNumber,
+          deviceName: device.productName,
+        ),
+      );
     }
   }
 
