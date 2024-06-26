@@ -1,4 +1,3 @@
-import 'dart:js_interop';
 import 'package:flutter/foundation.dart';
 import 'package:ledger_usb/usb.web.dart';
 import 'package:ledger_usb/usb_device.dart';
