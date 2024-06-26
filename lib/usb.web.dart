@@ -1,3 +1,5 @@
+// ignore_for_file: prefer_void_to_null
+
 @JS("window.navigator")
 library usb;
 
@@ -11,24 +13,18 @@ extension type WebUSB._(JSObject o) implements JSObject {
   external JSPromise<JSArray<USBDevice>> _getDevices();
 
   @JS('requestDevice')
-  external JSPromise<USBDevice> _requestDevice(RequestUSBDeviceFilters filters);
+  external JSPromise<USBDevice?> _requestDevice(
+    RequestUSBDeviceFilters filters,
+  );
 
   Future<List<USBDevice>> getDevices() async {
-    try {
-      final jsDevices = await _getDevices().toDart;
-      return jsDevices.toDart;
-    } catch (e) {
-      return [];
-    }
+    final jsDevices = await _getDevices().toDart;
+    return jsDevices.toDart;
   }
 
   Future<USBDevice?> requestDevice(RequestUSBDeviceFilters filters) async {
-    try {
-      final device = await _requestDevice(filters).toDart;
-      return device as USBDevice?;
-    } catch (e) {
-      return null;
-    }
+    final device = await _requestDevice(filters).toDart;
+    return device;
   }
 }
 
