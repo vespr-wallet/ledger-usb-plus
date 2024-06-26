@@ -4,6 +4,8 @@ import 'package:ledger_usb/usb_device.dart';
 
 import 'ledger_usb_platform_interface.dart';
 
+LedgerUsbPlatform createPlatformInstance() => MethodChannelLedgerUsb();
+
 /// An implementation of [LedgerUsbPlatform] that uses method channels.
 class MethodChannelLedgerUsb extends LedgerUsbPlatform {
   /// The method channel used to interact with the native platform.

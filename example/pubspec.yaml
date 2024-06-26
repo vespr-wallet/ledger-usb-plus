@@ -24,15 +24,14 @@ dependencies:
     # See https://dart.dev/tools/pub/dependencies#version-constraints
     # The example app is bundled with the plugin so we use a path dependency on
     # the parent directory to use the current plugin's version.
-    path: ../
+    path: ../../ledger-usb
 
 
-  algorand_dart: ^2.0.0-dev.4
   ledger_flutter:
     path: "../../ledger-flutter"
 
-  ledger_algorand:
-    path: "../../ledger-algorand"
+  ledger_cardano:
+    path: "../../ledger-cardano"
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
