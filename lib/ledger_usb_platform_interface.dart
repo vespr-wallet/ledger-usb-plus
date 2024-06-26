@@ -3,7 +3,9 @@ import 'package:ledger_usb/usb_device.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
 import 'ledger_usb_method_channel.dart'
-    if (dart.library.html) 'web_ledger_usb.dart' as ledger_usb_impl;
+    if (dart.library.html) 'web_ledger_usb.dart'
+    if (dart.library.js) 'web_ledger_usb.dart'
+    if (dart.library.js_interop) 'web_ledger_usb.dart';
 
 abstract class LedgerUsbPlatform extends PlatformInterface {
   /// Constructs a LedgerUsbPlatform.
@@ -11,11 +13,7 @@ abstract class LedgerUsbPlatform extends PlatformInterface {
 
   static final Object _token = Object();
 
-  static LedgerUsbPlatform _instance = LedgerUsbPlatform._();
-
-  factory LedgerUsbPlatform._() {
-    return ledger_usb_impl.createPlatformInstance();
-  }
+  static LedgerUsbPlatform _instance = createPlatformInstance();
 
   /// The default instance of [LedgerUsbPlatform] to use.
   ///

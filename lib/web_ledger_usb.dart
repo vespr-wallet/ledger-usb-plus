@@ -4,6 +4,8 @@ import 'package:ledger_usb/usb.web.dart';
 import 'package:ledger_usb/usb_device.dart';
 import 'ledger_usb_platform_interface.dart';
 
+LedgerUsbPlatform createPlatformInstance() => WebLedgerUsb();
+
 class WebLedgerUsb extends LedgerUsbPlatform {
   final List<USBDevice> _foundDevices = [];
   ({
