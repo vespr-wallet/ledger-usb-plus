@@ -4,6 +4,7 @@
 library usb;
 
 import 'dart:js_interop';
+import 'dart:typed_data';
 
 @JS()
 external WebUSB get usb;
@@ -99,13 +100,13 @@ extension type USBDevice._(JSObject o) implements JSObject {
 
   Future<USBOutTransferResult> transferOut(
     int endpointNumber,
-    JSUint8Array data,
+    Uint8List data,
   ) async {
     if (!opened) {
       throw Exception('Device is not open');
     }
     try {
-      final result = await _transferOut(endpointNumber, data).toDart;
+      final result = await _transferOut(endpointNumber, data.toJS).toDart;
       return result;
     } catch (e) {
       throw Exception('TransferOut failed: $e');

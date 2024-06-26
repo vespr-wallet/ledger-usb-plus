@@ -31,16 +31,18 @@ class WebLedgerUsb extends LedgerUsbPlatform {
         ..clear()
         ..addAll(devices);
 
-      return devices.map((e) => UsbDevice(
-        manufacturerName: e.manufacturerName,
-        deviceId: 0,
-        vendorId: e.vendorId,
-        productId: e.productId,
-        productName: e.productName,
-        configurationCount: 0,
-        identifier: e.serialNumber,
-        deviceName: e.productName,
-      )).toList();
+      return devices
+          .map((e) => UsbDevice(
+                manufacturerName: e.manufacturerName,
+                deviceId: 0,
+                vendorId: e.vendorId,
+                productId: e.productId,
+                productName: e.productName,
+                configurationCount: 0,
+                identifier: e.serialNumber,
+                deviceName: e.productName,
+              ))
+          .toList();
     } catch (e) {
       debugPrint('Error in getDevices: $e');
       return [];
@@ -90,7 +92,7 @@ class WebLedgerUsb extends LedgerUsbPlatform {
             if (e.toString().contains('SecurityError')) {
               continue;
             } else {
-              throw e;
+              rethrow;
             }
           }
         }
@@ -167,7 +169,7 @@ class WebLedgerUsb extends LedgerUsbPlatform {
         await device.open();
       }
 
-      final result = await device.transferOut(endpointNumber, data.toJS);
+      final result = await device.transferOut(endpointNumber, data);
       return result.bytesWritten;
     } catch (e) {
       debugPrint('Error in transferOut: $e');
