@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
-import 'package:ledger_usb/usb.web.dart';
-import 'package:ledger_usb/usb_device.dart';
+import 'package:ledger_usb_plus/usb.web.dart';
+import 'package:ledger_usb_plus/usb_device.dart';
 import 'ledger_usb_platform_interface.dart';
 
 LedgerUsbPlatform createPlatformInstance() => WebLedgerUsb();
