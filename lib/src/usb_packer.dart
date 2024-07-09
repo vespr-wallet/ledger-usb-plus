@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 
-import 'package:ledger_usb/ledger_usb.dart';
-import 'package:ledger_usb/src/buffer.dart';
+import 'package:ledger_usb_plus/ledger_usb.dart';
+import 'package:ledger_usb_plus/src/buffer.dart';
 
 class UsbPacker {
   Future<List<Uint8List>> pack(

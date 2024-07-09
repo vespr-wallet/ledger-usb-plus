@@ -1,5 +1,5 @@
 import 'dart:typed_data';
-import 'package:ledger_usb/usb_device.dart';
+import 'package:ledger_usb_plus/usb_device.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
 import 'ledger_usb_method_channel.dart'
