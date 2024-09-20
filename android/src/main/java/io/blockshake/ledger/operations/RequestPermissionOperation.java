@@ -42,7 +42,11 @@ public class RequestPermissionOperation extends UsbMethodCallOperation {
             }
         };
 
-        context.registerReceiver(receiver, new IntentFilter(ACTION_USB_PERMISSION));
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            context.registerReceiver(receiver, new IntentFilter(ACTION_USB_PERMISSION), Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            context.registerReceiver(receiver, new IntentFilter(ACTION_USB_PERMISSION));
+        }
 
         usbManager.requestPermission(device, getPendingIntent(context));
     }
@@ -52,7 +56,7 @@ public class RequestPermissionOperation extends UsbMethodCallOperation {
     PendingIntent getPendingIntent(Context context) {
         int flags;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            flags = PendingIntent.FLAG_MUTABLE | PendingIntent.FLAG_UPDATE_CURRENT;
+            flags = PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT;
         } else {
             flags = PendingIntent.FLAG_UPDATE_CURRENT;
         }
