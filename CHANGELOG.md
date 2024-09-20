@@ -1,6 +1,10 @@
-## 1.0.3
+## 1.0.4
 
 - PR3: Fixed Android 14 USB connection (thank you [@konstantinullrich](https://github.com/konstantinullrich))
+
+## 1.0.3
+
+- ~~PR3: Fixed Android 14 USB connection (thank you [@konstantinullrich](https://github.com/konstantinullrich))~~
 
 ## 1.0.2
 
