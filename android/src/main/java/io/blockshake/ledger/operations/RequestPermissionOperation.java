@@ -43,7 +43,7 @@ public class RequestPermissionOperation extends UsbMethodCallOperation {
         };
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            context.registerReceiver(receiver, new IntentFilter(ACTION_USB_PERMISSION), Context.RECEIVER_NOT_EXPORTED);
+            context.registerReceiver(receiver, new IntentFilter(ACTION_USB_PERMISSION), Context.RECEIVER_EXPORTED);
         } else {
             context.registerReceiver(receiver, new IntentFilter(ACTION_USB_PERMISSION));
         }
