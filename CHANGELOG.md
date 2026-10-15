@@ -1,3 +1,10 @@
+## 1.0.9
+
+- Web: `getDevices()` returns already-permitted Ledger devices (`navigator.usb.getDevices()`) without
+  showing the browser chooser; `requestDevice()` is only called when none is permitted yet. Lets
+  extension pages that cannot show a chooser (side panel, action popup) talk to a device paired
+  from a full tab.
+
 ## 1.0.8
 
 - Updated Android gradle plugin to 9.0.0

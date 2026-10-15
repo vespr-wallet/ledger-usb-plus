@@ -21,17 +21,24 @@ class WebLedgerUsb extends LedgerUsbPlatform {
   @override
   Future<List<UsbDevice>> getDevices() async {
     try {
-      final device = await usb.requestDevice(
-        RequestUSBDeviceFilters.dart(
-          [RequestUSBDeviceFilter(vendorId: _ledgerVendorId)],
-        ),
-      );
+      // Devices the user already permitted (from any page of the same origin)
+      // are returned without a chooser. The chooser needs a user gesture in a
+      // top-level page, so only fall back to it when nothing is permitted yet.
+      var devices = await _permittedLedgerDevices();
 
-      if (device == null) {
-        return [];
+      if (devices.isEmpty) {
+        final device = await usb.requestDevice(
+          RequestUSBDeviceFilters.dart(
+            [RequestUSBDeviceFilter(vendorId: _ledgerVendorId)],
+          ),
+        );
+
+        if (device == null) {
+          return [];
+        }
+
+        devices = await _permittedLedgerDevices();
       }
-
-      final devices = await usb.getDevices();
 
       _foundDevices
         ..clear()
@@ -53,6 +60,13 @@ class WebLedgerUsb extends LedgerUsbPlatform {
       debugPrint('Error in getDevices: $e');
       return [];
     }
+  }
+
+  Future<List<USBDevice>> _permittedLedgerDevices() async {
+    final devices = await usb.getDevices();
+    return devices
+        .where((e) => e.vendorId == _ledgerVendorId)
+        .toList(growable: false);
   }
 
   @override
