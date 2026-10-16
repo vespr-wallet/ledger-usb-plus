@@ -150,52 +150,39 @@ class WebHidLedgerUsb extends LedgerUsbPlatform {
     }
   }
 
+  /// Throws instead of returning `null`: `LedgerUsb.exchange` retries a `null`
+  /// read forever, so a closed or unplugged device must fail the exchange.
   @override
   Future<Uint8List?> transferIn(int packetSize, int timeout) async {
-    final Completer<Uint8List> pending;
-    try {
-      final activeDevice = _activeDevice;
-      if (activeDevice == null) {
-        throw Exception('No active device; use open() first');
-      }
+    await _openActiveDevice();
 
-      if (!activeDevice.device.opened) {
-        await activeDevice.device.open();
-      }
-
-      if (_inputReports.isNotEmpty) {
-        return _inputReports.removeFirst();
-      }
-
-      pending = Completer<Uint8List>();
-      _pendingTransferIn = pending;
-    } catch (e) {
-      debugPrint('Error in transferIn: $e');
-      return null;
+    if (_inputReports.isNotEmpty) {
+      return _inputReports.removeFirst();
     }
-    // Not caught: `LedgerUsb.exchange` retries on null forever, so a device
-    // closed or unplugged while waiting must fail the exchange instead.
+
+    final pending = Completer<Uint8List>();
+    _pendingTransferIn = pending;
     return pending.future;
   }
 
+  /// Throws instead of returning `-1`: `LedgerUsb.exchange` ignores the byte
+  /// count and would wait for the reply to a report that was never sent.
   @override
   Future<int> transferOut(Uint8List data, int timeout) async {
-    try {
-      final activeDevice = _activeDevice;
-      if (activeDevice == null) {
-        throw Exception('No active device; use open() first');
-      }
+    final activeDevice = await _openActiveDevice();
+    await activeDevice.sendReport(_ledgerReportId, data);
+    return data.length;
+  }
 
-      if (!activeDevice.device.opened) {
-        await activeDevice.device.open();
-      }
-
-      await activeDevice.device.sendReport(_ledgerReportId, data);
-      return data.length;
-    } catch (e) {
-      debugPrint('Error in transferOut: $e');
-      return -1;
+  Future<HIDDevice> _openActiveDevice() async {
+    final device = _activeDevice?.device;
+    if (device == null) {
+      throw Exception('Ledger closed or disconnected');
     }
+    if (!device.opened) {
+      await device.open();
+    }
+    return device;
   }
 
   /// Detaches the listeners of the active device and fails a pending
