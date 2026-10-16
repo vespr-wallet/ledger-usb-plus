@@ -19,6 +19,9 @@ extension type WebHID._(JSObject o) implements JSObject {
     HIDDeviceRequestOptions options,
   );
 
+  external void addEventListener(String type, JSFunction listener);
+  external void removeEventListener(String type, JSFunction listener);
+
   Future<List<HIDDevice>> getDevices() async {
     final jsDevices = await _getDevices().toDart;
     return jsDevices.toDart;
@@ -74,6 +77,10 @@ extension type HIDDevice._(JSObject o) implements JSObject {
 extension type HIDCollectionInfo._(JSObject o) implements JSObject {
   external int get usagePage;
   external int get usage;
+}
+
+extension type HIDConnectionEvent._(JSObject o) implements JSObject {
+  external HIDDevice get device;
 }
 
 extension type HIDInputReportEvent._(JSObject o) implements JSObject {

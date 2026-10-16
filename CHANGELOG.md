@@ -2,7 +2,8 @@
 
 - Web: WebHID backend (`navigator.hid`), used whenever the browser supports it; WebUSB remains the
   fallback. WebUSB is unreliable for Ledger on Windows. Only the Ledger APDU HID collection (usage
-  page `0xffa0`) is used; the 64-byte APDU framing is unchanged.
+  page `0xffa0`) is used; the 64-byte APDU framing is unchanged. Unplugging or closing the device
+  while an exchange waits for a response fails that exchange.
 - Web: `LedgerUsb.webDeviceChooserEnabled` (default `true`). When `false`, `getDevices()` never calls
   `requestDevice()` and returns an empty list if no Ledger is permitted yet. No-op on other platforms.
 

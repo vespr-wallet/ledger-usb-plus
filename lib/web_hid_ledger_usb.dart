@@ -17,6 +17,7 @@ const _ledgerUsagePage = 0xffa0;
 const _ledgerReportId = 0;
 
 const _inputReportEvent = 'inputreport';
+const _disconnectEvent = 'disconnect';
 
 /// WebHID backend. Same 64-byte packets as the WebUSB backend: every
 /// [transferOut] sends one output report, every [transferIn] returns one
@@ -29,7 +30,11 @@ class WebHidLedgerUsb extends LedgerUsbPlatform {
 
   final WebHID _hid;
   final Map<String, HIDDevice> _foundDevices = {};
-  ({HIDDevice device, JSFunction onInputReport})? _activeDevice;
+  ({
+    HIDDevice device,
+    JSFunction onInputReport,
+    JSFunction onDisconnect,
+  })? _activeDevice;
 
   final Queue<Uint8List> _inputReports = Queue();
   Completer<Uint8List>? _pendingTransferIn;
@@ -111,12 +116,26 @@ class WebHidLedgerUsb extends LedgerUsbPlatform {
 
       _stopListening();
       final onInputReport = _onInputReport.toJS;
+      final onDisconnect = _onDisconnect.toJS;
       device.addEventListener(_inputReportEvent, onInputReport);
-      _activeDevice = (device: device, onInputReport: onInputReport);
+      _hid.addEventListener(_disconnectEvent, onDisconnect);
+      _activeDevice = (
+        device: device,
+        onInputReport: onInputReport,
+        onDisconnect: onDisconnect,
+      );
       return true;
     } catch (e) {
       debugPrint('Error in open: $e');
       return false;
+    }
+  }
+
+  void _onDisconnect(HIDConnectionEvent event) {
+    final activeDevice = _activeDevice;
+    if (activeDevice != null &&
+        event.device.strictEquals(activeDevice.device).toDart) {
+      _stopListening();
     }
   }
 
@@ -133,6 +152,7 @@ class WebHidLedgerUsb extends LedgerUsbPlatform {
 
   @override
   Future<Uint8List?> transferIn(int packetSize, int timeout) async {
+    final Completer<Uint8List> pending;
     try {
       final activeDevice = _activeDevice;
       if (activeDevice == null) {
@@ -147,13 +167,15 @@ class WebHidLedgerUsb extends LedgerUsbPlatform {
         return _inputReports.removeFirst();
       }
 
-      final pending = Completer<Uint8List>();
+      pending = Completer<Uint8List>();
       _pendingTransferIn = pending;
-      return await pending.future;
     } catch (e) {
       debugPrint('Error in transferIn: $e');
       return null;
     }
+    // Not caught: `LedgerUsb.exchange` retries on null forever, so a device
+    // closed or unplugged while waiting must fail the exchange instead.
+    return pending.future;
   }
 
   @override
@@ -176,8 +198,8 @@ class WebHidLedgerUsb extends LedgerUsbPlatform {
     }
   }
 
-  /// Detaches the input report listener of the active device and fails a
-  /// pending [transferIn], like a WebUSB transfer aborted by `close()`.
+  /// Detaches the listeners of the active device and fails a pending
+  /// [transferIn], like a WebUSB transfer aborted by `close()` or unplugging.
   void _stopListening() {
     final activeDevice = _activeDevice;
     if (activeDevice != null) {
@@ -185,10 +207,13 @@ class WebHidLedgerUsb extends LedgerUsbPlatform {
         _inputReportEvent,
         activeDevice.onInputReport,
       );
+      _hid.removeEventListener(_disconnectEvent, activeDevice.onDisconnect);
     }
     _activeDevice = null;
     _inputReports.clear();
-    _pendingTransferIn?.completeError(Exception('Device closed'));
+    _pendingTransferIn?.completeError(
+      Exception('Ledger closed or disconnected'),
+    );
     _pendingTransferIn = null;
   }
 
