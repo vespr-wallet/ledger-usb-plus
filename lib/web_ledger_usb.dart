@@ -1,9 +1,17 @@
 import 'package:flutter/foundation.dart';
+import 'package:ledger_usb_plus/hid.web.dart';
+import 'package:ledger_usb_plus/ledger_usb.dart';
 import 'package:ledger_usb_plus/usb.web.dart';
 import 'package:ledger_usb_plus/usb_device.dart';
 import 'ledger_usb_platform_interface.dart';
+import 'web_hid_ledger_usb.dart';
 
-LedgerUsbPlatform createPlatformInstance() => WebLedgerUsb();
+/// Prefers WebHID (reliable on Windows, where WebUSB often cannot claim the
+/// Ledger interface) and falls back to WebUSB when `navigator.hid` is missing.
+LedgerUsbPlatform createPlatformInstance() {
+  final webHid = hid;
+  return webHid != null ? WebHidLedgerUsb(webHid) : WebLedgerUsb();
+}
 
 const _ledgerVendorId = 11415;
 
@@ -23,10 +31,11 @@ class WebLedgerUsb extends LedgerUsbPlatform {
     try {
       // Devices the user already permitted (from any page of the same origin)
       // are returned without a chooser. The chooser needs a user gesture in a
-      // top-level page, so only fall back to it when nothing is permitted yet.
+      // top-level page, so only fall back to it when nothing is permitted yet
+      // (and the chooser is enabled).
       var devices = await _permittedLedgerDevices();
 
-      if (devices.isEmpty) {
+      if (devices.isEmpty && LedgerUsb.webDeviceChooserEnabled) {
         final device = await usb.requestDevice(
           RequestUSBDeviceFilters.dart(
             [RequestUSBDeviceFilter(vendorId: _ledgerVendorId)],

@@ -11,6 +11,15 @@ import 'ledger_usb_platform_interface.dart';
 /// WEB USB: https://github.com/LedgerHQ/ledger-live/blob/develop/libs/ledgerjs/packages/hw-transport-webusb/src/TransportWebUSB.ts
 /// HID Framing: https://github.com/LedgerHQ/ledger-live/blob/develop/libs/ledgerjs/packages/devices/src/hid-framing.ts
 class LedgerUsb {
+  /// Web only (no-op elsewhere). Whether [listDevices] may show the browser
+  /// device chooser (`requestDevice()`) when no Ledger is permitted yet.
+  ///
+  /// When `false`, [listDevices] only returns devices the user already
+  /// permitted for this origin, and an empty list otherwise. Set it before
+  /// listing devices from pages that cannot show a chooser (no user gesture,
+  /// extension side panel or popup). Defaults to `true`.
+  static bool webDeviceChooserEnabled = true;
+
   Future<List<UsbDevice>> listDevices() {
     return LedgerUsbPlatform.instance.getDevices();
   }
