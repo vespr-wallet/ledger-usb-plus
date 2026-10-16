@@ -1,3 +1,11 @@
+## 1.1.0
+
+- Web: WebHID backend (`navigator.hid`), used whenever the browser supports it; WebUSB remains the
+  fallback. WebUSB is unreliable for Ledger on Windows. Only the Ledger APDU HID collection (usage
+  page `0xffa0`) is used; the 64-byte APDU framing is unchanged.
+- Web: `LedgerUsb.webDeviceChooserEnabled` (default `true`). When `false`, `getDevices()` never calls
+  `requestDevice()` and returns an empty list if no Ledger is permitted yet. No-op on other platforms.
+
 ## 1.0.9
 
 - Web: `getDevices()` returns already-permitted Ledger devices (`navigator.usb.getDevices()`) without
