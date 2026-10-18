@@ -2,9 +2,9 @@
 
 - Web (WebHID): unplugging the Ledger fails the exchange with a `connectionLost` `PlatformException`
   (`ConnectionLostException` in ledger_flutter_plus) instead of a plain `Exception`, so apps can show
-  "connection lost". `open()` looks the device up again instead of reusing the one from the last
-  `getDevices()`: a retry after an unplug no longer waits forever on the dead device, and a replugged
-  Ledger is found.
+  "connection lost". `open()` reuses the device from the last `getDevices()` only while it is still
+  connected, otherwise looks it up again: a retry after an unplug no longer waits forever on the dead
+  device, and a replugged Ledger is found.
 
 ## 1.1.0
 

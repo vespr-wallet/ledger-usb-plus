@@ -25,11 +25,12 @@ const _disconnectEvent = 'disconnect';
 /// input report.
 ///
 /// HID devices have no serial number, so [UsbDevice.identifier] is built from
-/// the product id and the position among the permitted Ledger devices.
+/// the product id and the position in the last [getDevices] result.
 class WebHidLedgerUsb extends LedgerUsbPlatform {
   WebHidLedgerUsb(this._hid);
 
   final WebHID _hid;
+  final Map<String, HIDDevice> _foundDevices = {};
   ({
     HIDDevice device,
     JSFunction onInputReport,
@@ -60,16 +61,23 @@ class WebHidLedgerUsb extends LedgerUsbPlatform {
         devices = await _permittedLedgerDevices();
       }
 
-      return devices.indexed
+      _foundDevices
+        ..clear()
+        ..addAll({
+          for (final (index, device) in devices.indexed)
+            _identifier(device, index): device,
+        });
+
+      return _foundDevices.entries
           .map((e) => UsbDevice(
                 manufacturerName: 'Ledger',
                 deviceId: 0,
-                vendorId: e.$2.vendorId,
-                productId: e.$2.productId,
-                productName: e.$2.productName,
+                vendorId: e.value.vendorId,
+                productId: e.value.productId,
+                productName: e.value.productName,
                 configurationCount: 0,
-                identifier: _identifier(e.$2, e.$1),
-                deviceName: e.$2.productName,
+                identifier: e.key,
+                deviceName: e.value.productName,
               ))
           .toList();
     } catch (e) {
@@ -100,13 +108,19 @@ class WebHidLedgerUsb extends LedgerUsbPlatform {
   @override
   Future<bool> open(UsbDevice usbDevice) async {
     try {
-      // Looked up again on every open: an unplugged Ledger's HIDDevice stays
-      // dead, and a replugged one is a new HIDDevice.
-      final device = (await _permittedLedgerDevices())
-          .indexed
-          .where((e) => _identifier(e.$2, e.$1) == usbDevice.identifier)
-          .map((e) => e.$2)
-          .firstOrNull;
+      // The device from the last getDevices() while it is still connected (the
+      // index of another Ledger may have shifted). An unplugged Ledger's
+      // HIDDevice stays dead and a replugged one is a new HIDDevice: look it
+      // up again by identifier.
+      final permitted = await _permittedLedgerDevices();
+      final cached = _foundDevices[usbDevice.identifier];
+      final device =
+          cached != null && permitted.any((d) => d.strictEquals(cached).toDart)
+              ? cached
+              : permitted.indexed
+                  .where((e) => _identifier(e.$2, e.$1) == usbDevice.identifier)
+                  .map((e) => e.$2)
+                  .firstOrNull;
       if (device == null) {
         throw Exception('Device not found');
       }
@@ -213,6 +227,7 @@ class WebHidLedgerUsb extends LedgerUsbPlatform {
       if (activeDevice != null) {
         _stopListening();
         await activeDevice.device.close();
+        _foundDevices.clear();
         return true;
       }
       return false;
