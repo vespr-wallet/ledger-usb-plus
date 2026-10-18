@@ -3,6 +3,7 @@ import 'dart:collection';
 import 'dart:js_interop';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:ledger_usb_plus/hid.web.dart';
 import 'package:ledger_usb_plus/ledger_usb.dart';
 import 'package:ledger_usb_plus/usb_device.dart';
@@ -107,7 +108,19 @@ class WebHidLedgerUsb extends LedgerUsbPlatform {
   @override
   Future<bool> open(UsbDevice usbDevice) async {
     try {
-      final device = _foundDevices[usbDevice.identifier];
+      // The device from the last getDevices() while it is still connected (the
+      // index of another Ledger may have shifted). An unplugged Ledger's
+      // HIDDevice stays dead and a replugged one is a new HIDDevice: look it
+      // up again by identifier.
+      final permitted = await _permittedLedgerDevices();
+      final cached = _foundDevices[usbDevice.identifier];
+      final device =
+          cached != null && permitted.any((d) => d.strictEquals(cached).toDart)
+              ? cached
+              : permitted.indexed
+                  .where((e) => _identifier(e.$2, e.$1) == usbDevice.identifier)
+                  .map((e) => e.$2)
+                  .firstOrNull;
       if (device == null) {
         throw Exception('Device not found');
       }
@@ -170,17 +183,27 @@ class WebHidLedgerUsb extends LedgerUsbPlatform {
   @override
   Future<int> transferOut(Uint8List data, int timeout) async {
     final activeDevice = await _openActiveDevice();
-    await activeDevice.sendReport(_ledgerReportId, data);
+    try {
+      await activeDevice.sendReport(_ledgerReportId, data);
+    } catch (_) {
+      // Unplugged before the disconnect event arrived.
+      throw _connectionLost();
+    }
     return data.length;
   }
 
   Future<HIDDevice> _openActiveDevice() async {
     final device = _activeDevice?.device;
     if (device == null) {
-      throw Exception('Ledger closed or disconnected');
+      throw _connectionLost();
     }
     if (!device.opened) {
-      await device.open();
+      try {
+        await device.open();
+      } catch (_) {
+        // Unplugged before the disconnect event arrived.
+        throw _connectionLost();
+      }
     }
     return device;
   }
@@ -198,9 +221,7 @@ class WebHidLedgerUsb extends LedgerUsbPlatform {
     }
     _activeDevice = null;
     _inputReports.clear();
-    _pendingTransferIn?.completeError(
-      Exception('Ledger closed or disconnected'),
-    );
+    _pendingTransferIn?.completeError(_connectionLost());
     _pendingTransferIn = null;
   }
 
@@ -221,3 +242,10 @@ class WebHidLedgerUsb extends LedgerUsbPlatform {
     }
   }
 }
+
+/// The message `ledger_flutter_plus` maps to its `ConnectionLostException`.
+PlatformException _connectionLost() => PlatformException(
+      code: 'connectionLost',
+      message: 'connectionLost',
+      details: 'Ledger closed or disconnected',
+    );

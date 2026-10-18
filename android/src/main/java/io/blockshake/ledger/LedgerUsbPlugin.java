@@ -13,10 +13,12 @@ import io.blockshake.ledger.operations.RequestPermissionOperation;
 import io.blockshake.ledger.operations.TransferInOperation;
 import io.blockshake.ledger.operations.TransferOutOperation;
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
+import io.flutter.plugin.common.BinaryMessenger;
 import io.flutter.plugin.common.MethodCall;
 import io.flutter.plugin.common.MethodChannel;
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler;
 import io.flutter.plugin.common.MethodChannel.Result;
+import io.flutter.plugin.common.StandardMethodCodec;
 
 public class LedgerUsbPlugin implements FlutterPlugin, MethodCallHandler {
 
@@ -28,7 +30,11 @@ public class LedgerUsbPlugin implements FlutterPlugin, MethodCallHandler {
 
     @Override
     public void onAttachedToEngine(@NonNull FlutterPluginBinding binding) {
-        channel = new MethodChannel(binding.getBinaryMessenger(), "ledger_usb");
+        // Serial background queue: transferIn/transferOut block in bulkTransfer (up to the timeout). On the platform
+        // thread, which also runs Dart's UI since Flutter 3.29, every read froze the UI until the Ledger answered.
+        BinaryMessenger messenger = binding.getBinaryMessenger();
+        channel = new MethodChannel(
+                messenger, "ledger_usb", StandardMethodCodec.INSTANCE, messenger.makeBackgroundTaskQueue());
         channel.setMethodCallHandler(this);
         context = binding.getApplicationContext();
         usbManager = (UsbManager) context.getSystemService(Context.USB_SERVICE);

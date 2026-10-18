@@ -1,3 +1,14 @@
+## 1.1.1
+
+- Web (WebHID): unplugging the Ledger fails the exchange with a `connectionLost` `PlatformException`
+  (`ConnectionLostException` in ledger_flutter_plus) instead of a plain `Exception`, so apps can show
+  "connection lost". `open()` reuses the device from the last `getDevices()` only while it is still
+  connected, otherwise looks it up again: a retry after an unplug no longer waits forever on the dead
+  device, and a replugged Ledger is found.
+- Android: method calls run on a background task queue. The blocking USB transfers ran on the platform
+  thread, which also runs the Flutter UI since Flutter 3.29, so the UI froze while waiting for the
+  Ledger.
+
 ## 1.1.0
 
 - Web: WebHID backend (`navigator.hid`), used whenever the browser supports it; WebUSB remains the
