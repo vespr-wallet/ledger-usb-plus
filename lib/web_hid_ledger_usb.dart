@@ -198,7 +198,12 @@ class WebHidLedgerUsb extends LedgerUsbPlatform {
       throw _connectionLost();
     }
     if (!device.opened) {
-      await device.open();
+      try {
+        await device.open();
+      } catch (_) {
+        // Unplugged before the disconnect event arrived.
+        throw _connectionLost();
+      }
     }
     return device;
   }
