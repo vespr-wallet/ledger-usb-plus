@@ -3,6 +3,7 @@ import 'dart:collection';
 import 'dart:js_interop';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:ledger_usb_plus/hid.web.dart';
 import 'package:ledger_usb_plus/ledger_usb.dart';
 import 'package:ledger_usb_plus/usb_device.dart';
@@ -24,12 +25,11 @@ const _disconnectEvent = 'disconnect';
 /// input report.
 ///
 /// HID devices have no serial number, so [UsbDevice.identifier] is built from
-/// the product id and the position in the last [getDevices] result.
+/// the product id and the position among the permitted Ledger devices.
 class WebHidLedgerUsb extends LedgerUsbPlatform {
   WebHidLedgerUsb(this._hid);
 
   final WebHID _hid;
-  final Map<String, HIDDevice> _foundDevices = {};
   ({
     HIDDevice device,
     JSFunction onInputReport,
@@ -60,23 +60,16 @@ class WebHidLedgerUsb extends LedgerUsbPlatform {
         devices = await _permittedLedgerDevices();
       }
 
-      _foundDevices
-        ..clear()
-        ..addAll({
-          for (final (index, device) in devices.indexed)
-            _identifier(device, index): device,
-        });
-
-      return _foundDevices.entries
+      return devices.indexed
           .map((e) => UsbDevice(
                 manufacturerName: 'Ledger',
                 deviceId: 0,
-                vendorId: e.value.vendorId,
-                productId: e.value.productId,
-                productName: e.value.productName,
+                vendorId: e.$2.vendorId,
+                productId: e.$2.productId,
+                productName: e.$2.productName,
                 configurationCount: 0,
-                identifier: e.key,
-                deviceName: e.value.productName,
+                identifier: _identifier(e.$2, e.$1),
+                deviceName: e.$2.productName,
               ))
           .toList();
     } catch (e) {
@@ -107,7 +100,13 @@ class WebHidLedgerUsb extends LedgerUsbPlatform {
   @override
   Future<bool> open(UsbDevice usbDevice) async {
     try {
-      final device = _foundDevices[usbDevice.identifier];
+      // Looked up again on every open: an unplugged Ledger's HIDDevice stays
+      // dead, and a replugged one is a new HIDDevice.
+      final device = (await _permittedLedgerDevices())
+          .indexed
+          .where((e) => _identifier(e.$2, e.$1) == usbDevice.identifier)
+          .map((e) => e.$2)
+          .firstOrNull;
       if (device == null) {
         throw Exception('Device not found');
       }
@@ -170,14 +169,19 @@ class WebHidLedgerUsb extends LedgerUsbPlatform {
   @override
   Future<int> transferOut(Uint8List data, int timeout) async {
     final activeDevice = await _openActiveDevice();
-    await activeDevice.sendReport(_ledgerReportId, data);
+    try {
+      await activeDevice.sendReport(_ledgerReportId, data);
+    } catch (_) {
+      // Unplugged before the disconnect event arrived.
+      throw _connectionLost();
+    }
     return data.length;
   }
 
   Future<HIDDevice> _openActiveDevice() async {
     final device = _activeDevice?.device;
     if (device == null) {
-      throw Exception('Ledger closed or disconnected');
+      throw _connectionLost();
     }
     if (!device.opened) {
       await device.open();
@@ -198,9 +202,7 @@ class WebHidLedgerUsb extends LedgerUsbPlatform {
     }
     _activeDevice = null;
     _inputReports.clear();
-    _pendingTransferIn?.completeError(
-      Exception('Ledger closed or disconnected'),
-    );
+    _pendingTransferIn?.completeError(_connectionLost());
     _pendingTransferIn = null;
   }
 
@@ -211,7 +213,6 @@ class WebHidLedgerUsb extends LedgerUsbPlatform {
       if (activeDevice != null) {
         _stopListening();
         await activeDevice.device.close();
-        _foundDevices.clear();
         return true;
       }
       return false;
@@ -221,3 +222,10 @@ class WebHidLedgerUsb extends LedgerUsbPlatform {
     }
   }
 }
+
+/// The message `ledger_flutter_plus` maps to its `ConnectionLostException`.
+PlatformException _connectionLost() => PlatformException(
+      code: 'connectionLost',
+      message: 'connectionLost',
+      details: 'Ledger closed or disconnected',
+    );
