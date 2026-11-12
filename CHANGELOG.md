@@ -1,3 +1,7 @@
+## Unreleased
+
+- Toolchain: Flutter 3.50.0 (Dart 3.14.0) for development (`.tool-versions`). Dependencies were already at their latest versions; the minimum SDK constraints are unchanged, so consumers see no change
+
 ## 1.1.1
 
 - Web (WebHID): unplugging the Ledger fails the exchange with a `connectionLost` `PlatformException`
